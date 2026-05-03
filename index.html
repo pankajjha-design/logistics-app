@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Logistics Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+<header class="bg-slate-900 text-white p-4 shadow-lg">
+  <div class="max-w-7xl mx-auto flex justify-between items-center flex-wrap gap-2">
+    <h1 class="text-2xl font-bold">📦 Logistics Dashboard</h1>
+    <div class="flex gap-2 flex-wrap">
+      <label class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded cursor-pointer text-sm">
+        📤 Upload Excel
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" class="hidden"/>
+      </label>
+      <button onclick="loadData()" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-sm">🔄 Refresh</button>
+      <button onclick="clearAllData()" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-sm">🗑 Clear All</button>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto p-4">
+
+  <div id="statusBar" class="hidden mb-4 p-3 rounded text-sm"></div>
+
+  <!-- Summary Cards -->
+  <div id="summaryCards" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6"></div>
+
+  <!-- Charts -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+    <div class="bg-white p-4 rounded shadow"><h3 class="font-bold mb-2">Top Transporters</h3><canvas id="chartTransporter"></canvas></div>
+    <div class="bg-white p-4 rounded shadow"><h3 class="font-bold mb-2">Trips by Zone</h3><canvas id="chartZone"></canvas></div>
+  </div>
+
+  <!-- Filters -->
+  <div class="bg-white p-4 rounded shadow mb-4">
+    <h3 class="font-bold mb-3">🔍 Search & Filter</h3>
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+      <input id="fTransporter" placeholder="Transporter" class="border p-2 rounded text-sm"/>
+      <input id="fClient" placeholder="Client" class="border p-2 rounded text-sm"/>
+      <input id="fDestination" placeholder="Destination" class="border p-2 rounded text-sm"/>
+      <select id="fState" class="border p-2 rounded text-sm"><option value="">All States</option></select>
+      <select id="fZone" class="border p-2 rounded text-sm"><option value="">All Zones</option></select>
+      <select id="fYear" class="border p-2 rounded text-sm"><option value="">All Years</option></select>
+      <input id="fInvoice" placeholder="Invoice No" class="border p-2 rounded text-sm"/>
+      <input id="fVehicle" placeholder="Vehicle No" class="border p-2 rounded text-sm"/>
+      <input id="fLR" placeholder="LR No" class="border p-2 rounded text-sm"/>
+      <button onclick="applyFilters()" class="bg-blue-600 text-white rounded text-sm hover:bg-blue-700">Apply</button>
+      <button onclick="resetFilters()" class="bg-gray-500 text-white rounded text-sm hover:bg-gray-600">Reset</button>
+      <button onclick="exportCSV()" class="bg-emerald-600 text-white rounded text-sm hover:bg-emerald-700">⬇ Export CSV</button>
+    </div>
+  </div>
+
+  <!-- Result count -->
+  <div id="resultCount" class="text-sm text-slate-600 mb-2"></div>
+
+  <!-- Data Table -->
+  <div class="bg-white rounded shadow overflow-x-auto">
+    <table class="w-full text-xs" id="dataTable">
+      <thead class="bg-slate-800 text-white sticky top-0">
+        <tr id="tableHead"></tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
