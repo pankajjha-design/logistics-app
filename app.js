@@ -6,6 +6,36 @@ let chartT, chartZ;
 
 const HEADERS = ["SR No","Invoice No","Invoice Date","Date In","Date Out","Year","Month","Client Name","Destination","State","Zone","Actual Truck Weight","Calling Truck Weight","CLTT","CLUB","Charged Weight","Freight OLD","Per Kg","Final Freight Old","Freight NEW","DD","Per Kg 2","OUSP Weight","OUSP Calling 2","Final Freight New","Saving","Truck No","LR No","Transporter","Rate As Per Flat","Saving As Per Flat Rate","KK","Weight Loss","Freight Loss","Sale Value","Detention Days","Detention Amount","Quantity","Vehicle Capacity"];
 
+const COLUMN_MAP = {
+  "SR No": ["SR No","SR. No.","SR No.","Sr No","S No","S.No","SrNo"],
+  "Invoice No": ["Invoice No","Invoice No.","Invoice Number","InvoiceNo"],
+  "Invoice Date": ["Invoice Date","Invoice Date / Month","Invoice Date/Month","Invoice Month","InvoiceDate"],
+  "Date In": ["Date In","Date In Time","Gate In","In Date","DateIn"],
+  "Date Out": ["Date Out","Date Out Time","Gate Out","Out Date","DateOut"],
+  "Truck No": ["Truck No","Truck No.","Vehicle No","Vehicle No.","TruckNo"],
+  "LR No": ["LR No","LR No.","LR Number","LRNo"],
+  "DD": ["DD","dd"],
+  "Per Kg": ["Per Kg","Perkg","Per Kg 1","PerKg"],
+  "Per Kg 2": ["Per Kg 2","Perkg2","PerKg2"],
+  "Freight OLD": ["Freight OLD","Freight Old","FreightOld"],
+  "Freight NEW": ["Freight NEW","Freight New","FreightNew"],
+  "Weight Loss": ["Weight Loss","Weighjt Loss","Wt Loss"],
+  "Sale Value": ["Sale Value","Sales Value","SaleValue"]
+};
+
+function norm(s) { return String(s||"").toLowerCase().replace(/[^a-z0-9]/g,""); }
+
+function findKey(rowObj, header) {
+  const variations = COLUMN_MAP[header] || [header];
+  const keys = Object.keys(rowObj);
+  for (const v of variations) {
+    const target = norm(v);
+    const found = keys.find(k => norm(k) === target);
+    if (found) return found;
+  }
+  return null;
+}
+
 function showStatus(msg, type="info") {
   const el = document.getElementById("statusBar");
   const colors = {info:"bg-blue-100 text-blue-800",success:"bg-green-100 text-green-800",error:"bg-red-100 text-red-800"};
@@ -34,12 +64,8 @@ async function loadData() {
       renderTable();
       loadSummary();
       showStatus("✅ Loaded " + allData.length + " records", "success");
-    } else {
-      showStatus("Error: " + json.message, "error");
-    }
-  } catch (err) {
-    showStatus("Network error: " + err.message, "error");
-  }
+    } else showStatus("Error: " + json.message, "error");
+  } catch (err) { showStatus("Network error: " + err.message, "error"); }
 }
 
 async function loadSummary() {
@@ -48,16 +74,21 @@ async function loadSummary() {
     const json = await res.json();
     if (json.status !== "success") return;
     const s = json.summary;
-    
+    const uniqueVehicles = new Set(allData.map(r => r["Truck No"]).filter(Boolean)).size;
+    const uniqueTransporters = Object.keys(s.transporters).length;
+    const uniqueClients = Object.keys(s.clients).length;
+
     document.getElementById("summaryCards").innerHTML = `
       ${card("Total Trips", s.totalTrips, "bg-blue-500")}
+      ${card("Total Vehicles", uniqueVehicles, "bg-cyan-500")}
+      ${card("Transporters", uniqueTransporters, "bg-indigo-500")}
+      ${card("Clients", uniqueClients, "bg-teal-500")}
       ${card("Total Sale Value", "₹" + fmt(s.totalSale), "bg-emerald-500")}
       ${card("Freight (New)", "₹" + fmt(s.totalFreightNew), "bg-orange-500")}
       ${card("Freight (Old)", "₹" + fmt(s.totalFreightOld), "bg-amber-500")}
       ${card("Total Saving", "₹" + fmt(s.totalSaving), "bg-purple-500")}
       ${card("Total Weight (kg)", fmt(s.totalWeight), "bg-pink-500")}
     `;
-    
     drawChart("chartTransporter", s.transporters, "chartT");
     drawChart("chartZone", s.zones, "chartZ");
   } catch (err) { console.error(err); }
@@ -74,10 +105,7 @@ function drawChart(canvasId, dataObj, ref) {
   if (ref === "chartZ" && chartZ) chartZ.destroy();
   const chart = new Chart(ctx, {
     type: "bar",
-    data: {
-      labels: sorted.map(s=>s[0]),
-      datasets: [{label:"Trips", data: sorted.map(s=>s[1]), backgroundColor:"#3b82f6"}]
-    },
+    data: { labels: sorted.map(s=>s[0]), datasets: [{label:"Trips", data: sorted.map(s=>s[1]), backgroundColor:"#3b82f6"}] },
     options: {responsive:true, plugins:{legend:{display:false}}}
   });
   if (ref === "chartT") chartT = chart; else chartZ = chart;
@@ -109,18 +137,17 @@ function applyFilters() {
   const inv = document.getElementById("fInvoice").value.toLowerCase();
   const v = document.getElementById("fVehicle").value.toLowerCase();
   const lr = document.getElementById("fLR").value.toLowerCase();
-
-  filteredData = allData.filter(r => {
-    return (!t || String(r["Transporter"]||"").toLowerCase().includes(t))
-      && (!c || String(r["Client Name"]||"").toLowerCase().includes(c))
-      && (!d || String(r["Destination"]||"").toLowerCase().includes(d))
-      && (!st || r["State"] == st)
-      && (!z || r["Zone"] == z)
-      && (!y || String(r["Year"]) == String(y))
-      && (!inv || String(r["Invoice No"]||"").toLowerCase().includes(inv))
-      && (!v || String(r["Truck No"]||"").toLowerCase().includes(v))
-      && (!lr || String(r["LR No"]||"").toLowerCase().includes(lr));
-  });
+  filteredData = allData.filter(r =>
+    (!t || String(r["Transporter"]||"").toLowerCase().includes(t))
+    && (!c || String(r["Client Name"]||"").toLowerCase().includes(c))
+    && (!d || String(r["Destination"]||"").toLowerCase().includes(d))
+    && (!st || r["State"] == st)
+    && (!z || r["Zone"] == z)
+    && (!y || String(r["Year"]) == String(y))
+    && (!inv || String(r["Invoice No"]||"").toLowerCase().includes(inv))
+    && (!v || String(r["Truck No"]||"").toLowerCase().includes(v))
+    && (!lr || String(r["LR No"]||"").toLowerCase().includes(lr))
+  );
   renderTable();
 }
 
@@ -140,8 +167,7 @@ function renderTable() {
     tbody.innerHTML = filteredData.map((r,i)=>
       `<tr class="${i%2?'bg-slate-50':'bg-white'} hover:bg-yellow-50">` +
       HEADERS.map(h=>`<td class="p-2 whitespace-nowrap border-b">${r[h]!==undefined && r[h]!==""?r[h]:""}</td>`).join("") +
-      `</tr>`
-    ).join("");
+      `</tr>`).join("");
   }
   document.getElementById("resultCount").textContent = `Showing ${filteredData.length} of ${allData.length} records`;
 }
@@ -156,3 +182,66 @@ function exportCSV() {
   const a = document.createElement("a");
   a.href = url; a.download = "logistics_export.csv"; a.click();
 }
+
+document.getElementById("fileInput").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  showStatus("Reading Excel...", "info");
+  const reader = new FileReader();
+  
+  reader.onerror = () => showStatus("File read error", "error");
+  
+  reader.onload = async (evt) => {
+    try {
+      const wb = XLSX.read(evt.target.result, {type:"array"});
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, {defval:"", raw: false});
+      if (!rows.length) { showStatus("Excel is empty", "error"); return; }
+      
+      console.log("Excel columns found:", Object.keys(rows[0]));
+      
+      const mapped = rows.map(r => {
+        const o = {};
+        HEADERS.forEach(h => {
+          const key = findKey(r, h);
+          o[h] = key ? r[key] : "";
+        });
+        return o;
+      });
+      
+      console.log("First mapped row:", mapped[0]);
+      showStatus(`Uploading ${mapped.length} rows... please wait`, "info");
+      
+      const res = await fetch(API_URL, {
+        method:"POST",
+        body: JSON.stringify({action:"addRows", rows: mapped})
+      });
+      const json = await res.json();
+      
+      if (json.status === "success") {
+        showStatus(`✅ Successfully added ${json.added} rows`, "success");
+        loadData();
+      } else {
+        showStatus("Upload failed: " + json.message, "error");
+      }
+    } catch (err) {
+      console.error("Upload error:", err);
+      showStatus("Error: " + err.message, "error");
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  e.target.value = "";
+});
+
+async function clearAllData() {
+  if (!confirm("Delete ALL data from sheet? This cannot be undone.")) return;
+  showStatus("Clearing...", "info");
+  try {
+    const res = await fetch(API_URL, {method:"POST", body: JSON.stringify({action:"clearAll"})});
+    const json = await res.json();
+    if (json.status === "success") { showStatus("Cleared", "success"); loadData(); }
+    else showStatus("Error: " + json.message, "error");
+  } catch (err) { showStatus("Error: " + err.message, "error"); }
+}
+
+loadData();
